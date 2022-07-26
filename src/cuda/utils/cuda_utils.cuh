@@ -1,7 +1,7 @@
 /*
  * @Author: Jake Gu
  * @Date: 2019-04-21 14:50:47
- * @LastEditTime: 2019-04-29 11:23:23
+ * @LastEditTime: 2019-04-30 16:44:07
  */
 #ifndef __CUDA_UTILS_H__
 #define __CUDA_UTILS_H__
@@ -9,13 +9,24 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include <device_functions.h>
 #include <chrono>
 #include <cufft.h>
+#include <assert.h>
+#include <cmath>
+#include <cstdlib>
+#include <iostream>
+#include <string>
+#include <fstream>
 
 #ifdef CUBLAS
 #include <cublas_v2.h>
 #endif
+
+
+/*******************/
+/* Constant Values */
+/*******************/
+#define PI (3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067982148086513282306647093844609550582231725359408128481)
 
 /**********************/
 /* CUDA ERROR CHECK */
@@ -24,7 +35,7 @@
 #define cudaSafeCall(status) __cudaSafeCall(status, __FILE__, __LINE__)
 #endif
 
-inline void __cudaSafeCall(cudaStatus_t status, const char *file, const int line)
+inline void __cudaSafeCall(cudaError_t status, const char *file, const int line)
 {
     if (status != cudaSuccess)
     {
@@ -148,6 +159,11 @@ inline __device__ __host__ void swap(T &x, T &y)
     y = tmp;
 }
 
+inline __device__ int INDEX(const int hid, const int wid, const int N)
+{
+    return (hid * N + wid);
+}
+
 inline __device__ __host__ int LogBase2(uint64_t n)
 {
     static const int table[64] = {
@@ -238,7 +254,7 @@ inline __device__ cufftDoubleComplex complexConj(const cufftDoubleComplex &x)
 {
     cufftDoubleComplex res;
     res.x = x.x;
-    res.y = -1 * x.y;
+    res.y = -x.y;
     return res;
 }
 
@@ -246,8 +262,46 @@ inline __device__ cufftComplex complexConj(const cufftComplex &x)
 {
     cufftComplex res;
     res.x = x.x;
-    res.y = -1 * x.y;
+    res.y = -x.y;
     return res;
+}
+
+inline __device__ cufftDoubleComplex complexMulConj(const cufftDoubleComplex &x, const cufftDoubleComplex &y)
+{
+    cufftDoubleComplex res;
+    res.x = x.x * y.x - x.y * y.y;
+    res.y = -(x.x * y.y + x.y * y.x);
+    return res;
+}
+
+inline __device__ cufftComplex complexMulConj(const cufftComplex &x, const cufftComplex &y)
+{
+    cufftComplex res;
+    res.x = x.x * y.x - x.y * y.y;
+    res.y = -(x.x * y.y + x.y * y.x);
+    return res;
+}
+
+template <typename T>
+T **allocateMatrix(int M, int N)
+{
+    T **data;
+    data = new T *[M];
+    for (int i = 0; i < M; i++)
+    {
+        data[i] = new T[N];
+    }
+    return data;
+}
+
+template <typename T>
+void destroyMatrix(T **&data, int M)
+{
+    for (int i = 0; i < M; i++)
+    {
+        delete[] data[i];
+    }
+    delete[] data;
 }
 
 #ifdef CUBLAS
@@ -338,4 +392,5 @@ void printCUDA2DArray(const T *x, const int m, const int n, const char *str)
 
     free(host_x);
 }
+
 #endif // __CUDA_UTILS_H__

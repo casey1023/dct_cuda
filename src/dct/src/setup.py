@@ -1,3 +1,10 @@
+#!/usr/bin/env python
+# coding=UTF-8
+'''
+@Author: Jake Gu
+@Date: 2019-04-30 16:06:13
+@LastEditTime: 2019-05-01 11:00:08
+'''
 ##
 # @file   setup.py
 # @author Yibo Lin
@@ -37,6 +44,31 @@ setup(
                     'dct_cuda_kernel.cu',
                     'dst_cuda_kernel.cu'
                     ]),
+            CUDAExtension('dct2_fft2_cuda', 
+                [
+                    'dct2_fft2_cuda.cpp',
+                    'dct_cuda_kernel.cu'
+                    ]),
+            CUDAExtension('idct2_fft2_cuda', 
+                [
+                    'idct2_fft2_cuda.cpp',
+                    'dct_cuda_kernel.cu'
+                    ]),
+            CUDAExtension('idct_idxst_cuda', 
+                [
+                    'idct_idxst_cuda.cpp',
+                    'dct_cuda_kernel.cu'
+                    ]),
+            CUDAExtension('idxst_idct_cuda', 
+                [
+                    'idxst_idct_cuda.cpp',
+                    'dct_cuda_kernel.cu'
+                    ]),
+            CUDAExtension('dct2_lee_cuda', 
+                [
+                    'dct2_lee_cuda.cpp',
+                    'dct2_lee_cuda_kernel.cu'
+                    ])
             ],
         cmdclass={
             'build_ext': BuildExtension
