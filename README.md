@@ -4,6 +4,8 @@ https://github.com/limbo018/DREAMPlace.
 Other files are developed by Jiaqi Gu and Zixuan Jiang.
 This implmentation is integrated into the DREAMPlace.
 
+* The detailed algorithms and implementations are at [https://arxiv.org/abs/2110.01172](https://arxiv.org/abs/2110.01172).
+
 # Transforms
 * 1d/2d DCT
 * 1d/2d IDCT
