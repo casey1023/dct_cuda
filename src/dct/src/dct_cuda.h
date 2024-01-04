@@ -1,7 +1,7 @@
 /*
  * @Author: Jake Gu
  * @Date: 2019-04-02 16:34:45
- * @LastEditTime: 2019-04-30 19:58:53
+ * @LastEditTime: 2023-12-27 22:06:48
  */
 /**
  * @file   dct_cuda.h
@@ -12,6 +12,7 @@
 #define GPUPLACE_DCT_CUDA_H
 
 #include <torch/torch.h>
+#include "torch_fft_api.h"
 
 #define CHECK_GPU(x) AT_ASSERTM(x.is_cuda(), #x "must be a tensor on GPU")
 #define CHECK_FLAT(x) AT_ASSERTM(x.is_cuda() && x.ndimension() == 1, #x "must be a flat tensor on GPU")

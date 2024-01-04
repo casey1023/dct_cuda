@@ -1,7 +1,7 @@
 /*
  * @Author: Jake Gu
  * @Date: 2019-04-02 16:34:45
- * @LastEditTime: 2019-04-30 22:34:26
+ * @LastEditTime: 2023-12-27 22:14:02
  */
 
 #include "dct_cuda.h"
@@ -37,7 +37,7 @@ void idct2_fft2_forward(
             expkM.data<scalar_t>(),
             expkN.data<scalar_t>());
 
-        auto y = at::irfft(buf, 2, false, true, {M, N});
+        auto y = at::irfft(buf, 2, false, true, {{M, N}});
 
         idct2_fft2PostprocessCudaLauncher<scalar_t>(
             y.data<scalar_t>(),

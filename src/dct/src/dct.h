@@ -7,6 +7,7 @@
 #define GPUPLACE_DCT_H
 
 #include <torch/torch.h>
+#include "torch_fft_api.h"
 
 #define CHECK_CPU(x) AT_ASSERTM(!x.is_cuda(), #x "must be a tensor on CPU")
 #define CHECK_FLAT(x) AT_ASSERTM(!x.is_cuda() && x.ndimension() == 1, #x "must be a flat tensor on GPU")

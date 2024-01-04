@@ -37,7 +37,7 @@ void idct_idxst_forward(
             expkM.data<scalar_t>(),
             expkN.data<scalar_t>());
 
-        auto y = at::irfft(buf, 2, false, true, {M, N});
+        auto y = at::irfft(buf, 2, false, true, {{M, N}});
 
         idct_idxstPostprocessCudaLauncher<scalar_t>(
             y.data<scalar_t>(),

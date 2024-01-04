@@ -1,7 +1,7 @@
 /*
  * @Author: Jake Gu
  * @Date: 2019-04-30 19:13:56
- * @LastEditTime: 2019-04-30 19:14:17
+ * @LastEditTime: 2023-12-27 22:14:08
  */
 /*
  * @Author: Jake Gu
@@ -42,7 +42,7 @@ void idxst_idct_forward(
             expkM.data<scalar_t>(),
             expkN.data<scalar_t>());
 
-        auto y = at::irfft(buf, 2, false, true, {M, N});
+        auto y = at::irfft(buf, 2, false, true, {{M, N}});
 
         idxst_idctPostprocessCudaLauncher<scalar_t>(
             y.data<scalar_t>(),

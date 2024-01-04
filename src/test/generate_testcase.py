@@ -3,7 +3,7 @@
 '''
 @Author: Jake Gu
 @Date: 2019-05-01 12:10:51
-@LastEditTime: 2019-05-01 12:35:40
+LastEditTime: 2023-12-27 22:23:45
 '''
 #!/usr/bin/env python
 # coding=UTF-8
@@ -170,7 +170,7 @@ def idct_idxst(x, M, N):
 
 
 if __name__ == "__main__":
-    gen_input_2d(M=8192, N=8192)
+    gen_input_2d(M=128, N=128)
     gen_output_2d()
     # gen_input_1d(1024)
     # dct_1d()
