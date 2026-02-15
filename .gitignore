@@ -3,3 +3,5 @@ src/test/*.dat
 src/test/bin/*
 *.pyc
 __pycache__/
+src/cuda/general/*.o
+src/cuda/general/*.a

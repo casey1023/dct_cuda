@@ -1,6 +1,7 @@
 #include "global.cuh"
+#include "../include/dct2_fft2.cuh"
 
-#define TPB (16)
+namespace {
 
 template <typename T>
 __global__ void dct2d_preprocess_backup(const T *x, T *y, const int M, const int N, const int halfM, const int halfN)
@@ -32,6 +33,8 @@ __global__ void dct2d_preprocess_backup(const T *x, T *y, const int M, const int
         y[INDEX(hid, wid, N)] = x[index];
     }
 }
+
+} // anonymous namespace
 
 template <typename T>
 __global__ void dct2d_preprocess(const T *x, T *y, const int M, const int N, const int halfN)
@@ -96,6 +99,8 @@ __global__ void precomputeExpk(cufftComplex *expkM, cufftComplex *expkN, const i
         expkN[wid] = W_w_4N;
     }
 }
+
+namespace {
 
 template <typename T, typename TComplex>
 __global__ __launch_bounds__(TPB *TPB, 10) void dct2d_postprocess_backup(const TComplex *V, T *y, const int M, const int N,
@@ -207,6 +212,8 @@ __global__ __launch_bounds__(TPB *TPB, 10) void dct2d_postprocess_backup2(const 
     }
 }
 
+} // anonymous namespace
+
 template <typename T, typename TComplex>
 __global__ __launch_bounds__(TPB *TPB, 10) void dct2d_postprocess(const TComplex *V, T *y, const int M, const int N,
                                                                   const int halfM, const int halfN, const T two_over_MN, const T four_over_MN,
@@ -286,6 +293,8 @@ __global__ __launch_bounds__(TPB *TPB, 10) void dct2d_postprocess(const TComplex
     }
 }
 
+namespace {
+
 template <typename T>
 void makeCufftPlan(const int M, const int N, cufftHandle *plan) {}
 
@@ -312,10 +321,11 @@ void fft2D(cufftReal *d_x, cufftComplex *d_y, cufftHandle &plan)
     cufftExecR2C(plan, d_x, d_y);
     cudaDeviceSynchronize();
 }
+} // anonymous namespace
 
-CpuTimer Timer;
+// CpuTimer Timer;
 
-template <typename T, typename TReal = cufftDoubleReal, typename TComplex = cufftDoubleComplex>
+template <typename T, typename TReal, typename TComplex>
 void dct_2d_fft(const T *h_x, T *h_y, const int M, const int N)
 {
     T *d_x;
@@ -323,11 +333,11 @@ void dct_2d_fft(const T *h_x, T *h_y, const int M, const int N)
     TComplex *scratch;
     TComplex *expkM, *expkN;
 
-    if (!isPowerOf2<int>(N) || !isPowerOf2<int>(M))
-    {
-        printf("Input length is not power of 2.\n");
-        assert(0);
-    }
+    // if (!isPowerOf2<int>(N) || !isPowerOf2<int>(M))
+    // {
+    //     printf("Input length is not power of 2.\n");
+    //     assert(0);
+    // }
 
     size_t size = M * N * sizeof(T);
     cudaSafeCall(cudaMalloc((void **)&d_x, size));
@@ -346,11 +356,11 @@ void dct_2d_fft(const T *h_x, T *h_y, const int M, const int N)
     precomputeExpk<<<(std::max(M, N) + 1023) / 1024, 1024>>>(expkM, expkN, M, N);
     cudaDeviceSynchronize();
 
-    Timer.Start();
+    // Timer.Start();
     dct2d_preprocess<T><<<gridSize, blockSize>>>(d_x, d_y, M, N, N / 2);
     // dct2d_preprocess_backup<T><<<gridSize, blockSize>>>(d_x, d_y, M, N, M / 2, N / 2);
     cudaDeviceSynchronize();
-    Timer.Stop();
+    // Timer.Stop();
     fft2D(d_y, scratch, plan);
 
     dct2d_postprocess<T, TComplex><<<gridSize2, blockSize>>>(scratch, d_y, M, N, M / 2, N / 2, 2. / (M * N), 4. / (M * N), expkM, expkN);
@@ -367,6 +377,7 @@ void dct_2d_fft(const T *h_x, T *h_y, const int M, const int N)
     cufftDestroy(plan);
 }
 
+namespace{
 template <typename T>
 int validate2D(T *result_cuda, T *result_gt, const int M, const int N)
 {
@@ -424,39 +435,53 @@ void load_data(T *&data, T *&result, int &M, int &N)
     }
     printf("[I] data load done.\n");
 }
-
-int main()
-{
-    dtype *h_x;
-    dtype *h_y;
-    dtype *h_gt;
-
-    int M, N;
-    load_data<dtype>(h_x, h_gt, M, N);
-    h_y = new dtype[M * N];
-
-    double total_time = 0;
-    for (int i = 0; i < NUM_RUNS; ++i)
-    {
-        dct_2d_fft<dtype, dtypeReal, dtypeComplex>(h_x, h_y, M, N);
-        int flag = validate2D<dtype>(h_y, h_gt, M, N);
-        if (!flag)
-        {
-            printf("[I] Error! Results are incorrect.\n", flag);
-            for (int i = 0; i < 64; ++i)
-            {
-                printf("index: %d, result: %f, GT: %f, scale: %f\n", i, h_y[i], h_gt[i], h_y[i] / h_gt[i]);
-            }
-        }
-        printf("[D] dct 2D takes %g ms\n", Timer.ElapsedMillis());
-        total_time += i > 0 ? Timer.ElapsedMillis() : 0;
-    }
-
-    printf("[D] dct 2D (%d * %d) takes average %g ms\n", M, N, total_time / (NUM_RUNS - 1));
-
-    delete[] h_x;
-    delete[] h_y;
-    delete[] h_gt;
-
-    return 0;
 }
+
+// int main()
+// {
+//     dtype *h_x;
+//     dtype *h_y;
+//     dtype *h_gt;
+
+//     int M, N;
+//     load_data<dtype>(h_x, h_gt, M, N);
+//     h_y = new dtype[M * N];
+
+//     double total_time = 0;
+//     for (int i = 0; i < NUM_RUNS; ++i)
+//     {
+//         dct_2d_fft<dtype, dtypeReal, dtypeComplex>(h_x, h_y, M, N);
+//         int flag = validate2D<dtype>(h_y, h_gt, M, N);
+//         if (!flag)
+//         {
+//             printf("[I] Error! Results are incorrect.\n", flag);
+//             for (int i = 0; i < 64; ++i)
+//             {
+//                 printf("index: %d, result: %f, GT: %f, scale: %f\n", i, h_y[i], h_gt[i], h_y[i] / h_gt[i]);
+//             }
+//         }
+//         printf("[D] dct 2D takes %g ms\n", Timer.ElapsedMillis());
+//         total_time += i > 0 ? Timer.ElapsedMillis() : 0;
+//     }
+
+//     printf("[D] dct 2D (%d * %d) takes average %g ms\n", M, N, total_time / (NUM_RUNS - 1));
+
+//     delete[] h_x;
+//     delete[] h_y;
+//     delete[] h_gt;
+
+//     return 0;
+// }
+
+// Explicit template instantiations to avoid linking issues
+template __global__ void dct2d_preprocess<double>(const double *x, double *y, const int M, const int N, const int halfN);
+template __global__ void dct2d_preprocess<float>(const float *x, float *y, const int M, const int N, const int halfN);
+
+template __global__ void dct2d_postprocess<double, cufftDoubleComplex>(const cufftDoubleComplex *V, double *y, const int M, const int N,
+                                                                       const int halfM, const int halfN, const double two_over_MN, const double four_over_MN,
+                                                                       const cufftDoubleComplex *__restrict__ expkM, const cufftDoubleComplex *__restrict__ expkN);
+template __global__ void dct2d_postprocess<float, cufftComplex>(const cufftComplex *V, float *y, const int M, const int N,
+                                                                const int halfM, const int halfN, const float two_over_MN, const float four_over_MN,
+                                                                const cufftComplex *__restrict__ expkM, const cufftComplex *__restrict__ expkN);
+template void dct_2d_fft<double, cufftDoubleReal, cufftDoubleComplex>(const double *h_x, double *h_y, const int M, const int N);
+template void dct_2d_fft<float, cufftReal, cufftComplex>(const float *h_x, float *h_y, const int M, const int N);

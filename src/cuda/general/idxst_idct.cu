@@ -1,14 +1,14 @@
 // idxst(idct(x)) is similar to the idct2d(x),
 // except tiny modification on preprocessing and postprocessing
 #include "global.cuh"
-
-#define TPB (16)
+#include "../include/idxst_idct.cuh"
 
 // Adpated from idct2d_postprocess() with changes on sign and scale
 // if (hid % 2 == 1)
 //     new_output[hid][wid] = -output[hid][wid];
 // else
 //     new_output[hid][wid] = output[hid][wid];
+namespace{
 template <typename T>
 __global__ void idxst_idct_postprocess_backup(const T *x, T *y, const int M, const int N, const int halfN)
 {
@@ -42,6 +42,7 @@ __global__ void idxst_idct_postprocess_backup(const T *x, T *y, const int M, con
         }
     }
 }
+}
 
 // Adpated from idct2d_postprocess() with changes on sign and scale
 // if (hid % 2 == 1)
@@ -61,19 +62,19 @@ __global__ void idxst_idct_postprocess(const T *x, T *y, const int M, const int 
         {
         case 0:
             index = INDEX(((M - hid) << 1) - 1, ((N - wid) << 1) - 1, N);
-            y[index] = -x[INDEX(hid, wid, N)];
+            y[index] = -x[INDEX(hid, wid, N)] / 2.0;
             break;
         case 1:
             index = INDEX(((M - hid) << 1) - 1, wid << 1, N);
-            y[index] = -x[INDEX(hid, wid, N)];
+            y[index] = -x[INDEX(hid, wid, N)] / 2.0;
             break;
         case 2:
             index = INDEX(hid << 1, ((N - wid) << 1) - 1, N);
-            y[index] = x[INDEX(hid, wid, N)];
+            y[index] = x[INDEX(hid, wid, N)] / 2.0;
             break;
         case 3:
             index = INDEX(hid << 1, wid << 1, N);
-            y[index] = x[INDEX(hid, wid, N)];
+            y[index] = x[INDEX(hid, wid, N)] / 2.0;
             break;
         default:
             assert(0);
@@ -82,6 +83,7 @@ __global__ void idxst_idct_postprocess(const T *x, T *y, const int M, const int 
     }
 }
 
+namespace{
 __global__ void precomputeExpk(cufftDoubleComplex *expkM, cufftDoubleComplex *expkN, const int M, const int N)
 {
     const int tid = blockDim.x * blockIdx.x + threadIdx.x;
@@ -114,6 +116,7 @@ __global__ void precomputeExpk(cufftComplex *expkM, cufftComplex *expkN, const i
         cufftComplex W_w_4N = make_float2(__cosf((float)PI * wid / (2 * N)), -__sinf((float)PI * wid / (N * 2)));
         expkN[wid] = W_w_4N;
     }
+}
 }
 
 // Adpated from idct2d_preprocess(). The only change is the reordered input
@@ -221,6 +224,7 @@ __global__ __launch_bounds__(TPB *TPB, 10) void idxst_idct_preprocess(const T *i
     }
 }
 
+namespace{
 template <typename T>
 void makeCufftPlan(const int M, const int N, cufftHandle *plan) {}
 
@@ -247,9 +251,10 @@ void ifft2D(cufftComplex *d_x, cufftReal *d_y, cufftHandle &plan)
     cufftExecC2R(plan, d_x, d_y);
     cudaDeviceSynchronize();
 }
+}
 
-CpuTimer Timer;
-template <typename T, typename TReal = cufftDoubleReal, typename TComplex = cufftDoubleComplex>
+// CpuTimer Timer;
+template <typename T, typename TReal, typename TComplex>
 void idxst_idct(const T *h_x, T *h_y, const int M, const int N)
 {
     T *d_x;
@@ -258,11 +263,11 @@ void idxst_idct(const T *h_x, T *h_y, const int M, const int N)
     TComplex *scratch;
     TComplex *expkM, *expkN;
 
-    if (!isPowerOf2<int>(N) || !isPowerOf2<int>(M))
-    {
-        printf("Input length is not power of 2.\n");
-        assert(0);
-    }
+    // if (!isPowerOf2<int>(N) || !isPowerOf2<int>(M))
+    // {
+    //     printf("Input length is not power of 2.\n");
+    //     assert(0);
+    // }
 
     size_t size = M * N * sizeof(T);
     cudaSafeCall(cudaMalloc((void **)&d_x, size));
@@ -282,7 +287,7 @@ void idxst_idct(const T *h_x, T *h_y, const int M, const int N)
     precomputeExpk<<<(std::max(M, N) + 1023) / 1024, 1024>>>(expkM, expkN, M, N);
     cudaDeviceSynchronize();
 
-    Timer.Start();
+    // Timer.Start();
     idxst_idct_preprocess<T, TComplex><<<gridSize2, blockSize>>>(d_x, scratch, M, N, M / 2, N / 2, expkM, expkN);
     cudaDeviceSynchronize();
 
@@ -290,7 +295,7 @@ void idxst_idct(const T *h_x, T *h_y, const int M, const int N)
 
     idxst_idct_postprocess<T><<<gridSize, blockSize>>>(ifft_result, d_y, M, N, N / 2);
     cudaDeviceSynchronize();
-    Timer.Stop();
+    // Timer.Stop();
 
     cudaMemcpy(h_y, d_y, size, cudaMemcpyDeviceToHost);
 
@@ -303,6 +308,7 @@ void idxst_idct(const T *h_x, T *h_y, const int M, const int N)
     cufftDestroy(plan);
 }
 
+namespace{
 template <typename T>
 int validate2D(T *result_cuda, T *result_gt, const int M, const int N)
 {
@@ -360,39 +366,53 @@ void load_data(T *&data, T *&result, int &M, int &N)
     }
     printf("[I] data load done.\n");
 }
-
-int main()
-{
-    dtype *h_x;
-    dtype *h_y;
-    dtype *h_gt;
-
-    int M, N;
-    load_data<dtype>(h_x, h_gt, M, N);
-    h_y = new dtype[M * N];
-
-    double total_time = 0;
-    for (int i = 0; i < NUM_RUNS; ++i)
-    {
-        idxst_idct<dtype, dtypeReal, dtypeComplex>(h_x, h_y, M, N);
-        int flag = validate2D<dtype>(h_y, h_gt, M, N);
-        if (!flag)
-        {
-            printf("[I] Error! Results are incorrect.\n", flag);
-            for (int i = 0; i < 64; ++i)
-            {
-                printf("index: %d, result: %f, GT: %f, scale: %f\n", i, h_y[i], h_gt[i], h_y[i] / h_gt[i]);
-            }
-        }
-        printf("[D] idxst_idct takes %g ms\n", Timer.ElapsedMillis());
-        total_time += i > 0 ? Timer.ElapsedMillis() : 0;
-    }
-
-    printf("[D] idxst_idct (%d * %d) takes average %g ms\n", M, N, total_time / (NUM_RUNS - 1));
-
-    delete[] h_x;
-    delete[] h_y;
-    delete[] h_gt;
-
-    return 0;
 }
+
+// int main()
+// {
+//     dtype *h_x;
+//     dtype *h_y;
+//     dtype *h_gt;
+
+//     int M, N;
+//     load_data<dtype>(h_x, h_gt, M, N);
+//     h_y = new dtype[M * N];
+
+//     double total_time = 0;
+//     for (int i = 0; i < NUM_RUNS; ++i)
+//     {
+//         idxst_idct<dtype, dtypeReal, dtypeComplex>(h_x, h_y, M, N);
+//         int flag = validate2D<dtype>(h_y, h_gt, M, N);
+//         if (!flag)
+//         {
+//             printf("[I] Error! Results are incorrect.\n", flag);
+//             for (int i = 0; i < 64; ++i)
+//             {
+//                 printf("index: %d, result: %f, GT: %f, scale: %f\n", i, h_y[i], h_gt[i], h_y[i] / h_gt[i]);
+//             }
+//         }
+//         printf("[D] idxst_idct takes %g ms\n", Timer.ElapsedMillis());
+//         total_time += i > 0 ? Timer.ElapsedMillis() : 0;
+//     }
+
+//     printf("[D] idxst_idct (%d * %d) takes average %g ms\n", M, N, total_time / (NUM_RUNS - 1));
+
+//     delete[] h_x;
+//     delete[] h_y;
+//     delete[] h_gt;
+
+//     return 0;
+// }
+
+template __global__ void idxst_idct_preprocess(const float *input, cufftComplex *output, const int M, const int N,
+                                                                      const int halfM, const int halfN,
+                                                                      const cufftComplex *__restrict__ expkM, const cufftComplex *__restrict__ expkN);
+template __global__ void idxst_idct_preprocess(const double *input, cufftDoubleComplex *output, const int M, const int N,
+                                                                      const int halfM, const int halfN,
+                                                                      const cufftDoubleComplex *__restrict__ expkM, const cufftDoubleComplex *__restrict__ expkN);
+
+template __global__ void idxst_idct_postprocess(const float *x, float *y, const int M, const int N, const int halfN);
+template __global__ void idxst_idct_postprocess(const double *x, double *y, const int M, const int N, const int halfN);
+
+template void idxst_idct<float, cufftReal, cufftComplex>(const float *h_x, float *h_y, const int M, const int N);
+template void idxst_idct<double, cufftDoubleReal, cufftDoubleComplex>(const double *h_x, double *h_y, const int M, const int N);
