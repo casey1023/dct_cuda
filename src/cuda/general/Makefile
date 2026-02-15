@@ -1,7 +1,9 @@
 BIN_DIR := $(abspath ../../test/bin)
 
+arch_code?=86
+
 ARCH=\
-  -gencode arch=compute_86,code=sm_86
+  -gencode=arch=compute_$(arch_code),code=sm_$(arch_code)
 
 OPTIONS=-O3 -use_fast_math -lcurand -Xcompiler -Wall,-fPIC -lcublas -lcufft -prec-div=false -ftz=true -lineinfo # -rdc=true -Xcompiler -fopenmp --default-stream per-thread  #-maxrregcount 37
 
