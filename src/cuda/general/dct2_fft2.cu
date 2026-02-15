@@ -363,7 +363,7 @@ void dct_2d_fft(const T *h_x, T *h_y, const int M, const int N)
     // Timer.Stop();
     fft2D(d_y, scratch, plan);
 
-    dct2d_postprocess<T, TComplex><<<gridSize2, blockSize>>>(scratch, d_y, M, N, M / 2, N / 2, 2. / (M * N), 4. / (M * N), expkM, expkN);
+    dct2d_postprocess<T, TComplex><<<gridSize2, blockSize>>>(scratch, d_y, M, N, M / 2, N / 2, (T)(2. / (M * N)), (T)(4. / (M * N)), expkM, expkN);
     cudaDeviceSynchronize();
 
 
